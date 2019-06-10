@@ -1,20 +1,17 @@
 use amethyst::{
     ecs::{ReadExpect, Resources, SystemData},
     renderer::{
+        pass,
         rendy::{
             factory::Factory,
             graph::{
                 present::PresentNode,
-                render::{
-                    SubpassBuilder,
-                    RenderGroupDesc
-                },
-                GraphBuilder
+                render::{RenderGroupDesc, SubpassBuilder},
+                GraphBuilder,
             },
             hal::{command, format::Format, image},
             mesh::PosTex,
         },
-        pass,
         types, GraphCreator,
     },
     window::{ScreenDimensions, Window},
