@@ -12,9 +12,9 @@ use amethyst::{
                 GraphBuilder
             },
             hal::{command, format::Format, image},
-            
+            mesh::PosTex,
         },
-        pass::DrawPbrDesc,
+        pass,
         types, GraphCreator,
     },
     window::{ScreenDimensions, Window},
@@ -87,7 +87,8 @@ impl GraphCreator<types::DefaultBackend> for MyRenderGraphCreator {
         let pass1 = graph_builder.add_node(
             // Creates a render pass
             SubpassBuilder::new()
-                .with_group(DrawPbrDesc::default().builder())
+                .with_group(pass::DrawPbrDesc::default().builder())
+                //.with_group(pass::DrawFlatDesc::default().builder())
                 .with_color(color_image)
                 .with_depth_stencil(depth)
                 .into_pass(),

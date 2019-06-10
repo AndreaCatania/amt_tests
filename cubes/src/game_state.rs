@@ -11,6 +11,7 @@ use amethyst::{
                 Position,
                 Normal,
                 TexCoord,
+                Tangent,
                 Indices,
             },
             texture,
@@ -20,6 +21,7 @@ use amethyst::{
             SunLight,
         },
         palette::{Srgb,LinSrgba,},
+        shape::Shape,
     },
     core::{
         Transform,
@@ -81,7 +83,7 @@ impl CubeGameState {
             angle: 0.0,
             color: Srgb::new(1.0, 1.0, 1.0),
             direction: direction.normalize(),
-            intensity: 100.0,
+            intensity: 100000.0,
         }.into();
 
         world
@@ -90,56 +92,26 @@ impl CubeGameState {
             .with(Transform::default())
             .build();
     }
-    
 }
 
 fn create_cube_mesh(world: &World) -> (Handle<types::Mesh>, Handle<mtl::Material>){
-
-    // Mesh preparation
-
-    let positions: Vec<Position> = vec![
-        
-        Position([0.0, 0.0, 0.0]),
-        Position([0.0, 1.0, 0.0]),
-        Position([1.0, 0.0, 1.0]),
-    ];
-
-    let normals: Vec<Normal> = vec![
-
-        Normal([0.0, 0.0, 1.0]),
-        Normal([0.0, 0.0, 1.0]),
-        Normal([0.0, 0.0, 1.0]),
-    ];
-
-    let tex_coords: Vec<TexCoord> = vec![
-        TexCoord([0.0, 0.0]),
-        TexCoord([0.0, 1.0]),
-        TexCoord([1.0, 0.0]),
-    ];
-
-    let indices = vec![0, 1, 2];
 
     // Mesh creation
     let loader = world.read_resource::<Loader>();
     let asset_storage = world.read_resource::<AssetStorage<types::Mesh>>();
 
     let mesh = loader.load_from_data(
-                types::MeshData(
-                    MeshBuilder::new()
-                        .with_vertices(positions)
-                        .with_vertices(normals)
-                        .with_vertices(tex_coords)
-                        .with_indices(Indices::U16(indices.into())),
-                ),
+                Shape::Sphere(32, 32)
+                        .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(None)
+                .into(),
                 (),
                 &asset_storage
             );
     
     // Material creation
-
     let asset_storage = world.read_resource::<AssetStorage<types::Texture>>();
     let albedo = loader.load_from_data(
-        texture::palette::load_from_linear_rgba(LinSrgba::new(1.0, 1.0, 1.0, 0.5)).into(),
+        texture::palette::load_from_linear_rgba(LinSrgba::new(1.0, 1.0, 1.0, 1.0)).into(),
         (),
         &asset_storage
     );
