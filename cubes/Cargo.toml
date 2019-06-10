@@ -1,0 +1,8 @@
+[package]
+name = "cubes"
+version = "0.1.0"
+authors = ["Andrea Catania <info@andreacatania.com>"]
+edition = "2018"
+
+[dependencies]
+amethyst = { path ="/home/andrea/Workspace/git/amethyst", features = ["nightly", "vulkan"] }
