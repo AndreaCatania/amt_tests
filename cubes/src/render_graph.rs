@@ -53,7 +53,7 @@ impl GraphCreator<types::DefaultBackend> for MyRenderGraphCreator {
 
         // Retrieve a reference to the target window,
         // which is created by the WindowBundle
-        let window = <ReadExpect<'_, Arc<Window>>>::fetch(res);
+        let window = <ReadExpect<'_, Window>>::fetch(res);
 
         // Now create new surface
         let surface = factory.create_surface(&window);
