@@ -1,8 +1,8 @@
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
-    core::{math::Vector3, Transform},
+    core::{math::Vector3, Transform, Time,},
     ecs::prelude::World,
-    prelude::{Builder, GameData, SimpleState, StateData},
+    prelude::{Builder, GameData, SimpleState, StateData, SimpleTrans, Trans},
     renderer::{
         camera,
         light,
@@ -22,7 +22,12 @@ use amethyst::{
     window::ScreenDimensions,
 };
 
-pub struct CubeGameState;
+use rand::prelude::*;
+
+#[derive(Default)]
+pub struct CubeGameState{
+    counter: f32,
+}
 
 impl SimpleState for CubeGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
@@ -40,6 +45,10 @@ impl SimpleState for CubeGameState {
         transf.append_rotation_x_axis(-55.0f32.to_radians());
         self.add_cube(data.world, &transf);
 
+        transf.set_translation_xyz(0.0, -15.0, 9.0);
+        transf.set_rotation_x_axis(0.0f32.to_radians());
+        self.add_cube(data.world, &transf);
+
         self.add_light_entity(data.world, Vector3::new(-1.0, -1.0, -1.0));
 
         self.add_camera_entity(data.world);
@@ -49,6 +58,27 @@ impl SimpleState for CubeGameState {
         transform.set_translation_xyz(0.0, 15.0, -20.0);
         self.add_sphere_entity(data.world, &transform, 0.5);
 
+    }
+
+    fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+
+        // Spawn 1 ball each X sec
+        {
+            let time = data.world.read_resource::<Time>();
+            self.counter += time.delta_seconds();
+        }
+
+        if self.counter < 0.5 {
+            return Trans::None;
+        }
+
+        self.counter = 0.0;
+        let mut transform = Transform::default();
+        transform.set_translation_xyz(0.0, 15.0, -20.0);
+
+        self.add_sphere_entity(data.world, &transform, 0.5);
+
+        Trans::None
     }
 }
 
@@ -82,7 +112,9 @@ impl CubeGameState {
             create_mesh(world, sphere_mesh_data)
         };
 
-        let mat = create_material(world, LinSrgba::new(0.0, 0.0, 1.0, 1.0), 0.3, 0.7);
+        let mut rng = thread_rng();
+
+        let mat = create_material(world, LinSrgba::new(rng.gen(), rng.gen(), rng.gen(), 1.0), 0.3, 0.7);
 
         // Rigid body
         let shape_desc = ShapeDesc::Sphere{radius};

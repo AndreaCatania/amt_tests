@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 amethyst = { path ="/home/andrea/Workspace/git/amethyst", features = ["nightly", "vulkan"] }
+rand = "0.6"
