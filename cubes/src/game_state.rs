@@ -24,15 +24,31 @@ use amethyst::{
 
 use rand::prelude::*;
 
-#[derive(Default)]
 pub struct CubeGameState{
-    counter: f32,
+    bullet_spawner_timer: f32,
+    platform_size_changer_timer: f32,
+    bullet_shape: Option<PhysicsShapeTag>,
+    platform_shape: Option<PhysicsShapeTag>,
+}
+
+impl CubeGameState {
+    pub fn new() -> Self {
+        CubeGameState {
+            bullet_spawner_timer: 0.0,
+            platform_size_changer_timer: 0.0,
+            bullet_shape: None,
+            platform_shape: None,
+        }
+    }
 }
 
 impl SimpleState for CubeGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
 
         let mut transf = Transform::default();
+
+        self.initialize_bullet_shape(data.world, 0.5);
+        self.initialize_platform_shape(data.world);
 
         transf.append_rotation_x_axis(90.0f32.to_radians());
         self.add_cube(data.world, &transf);
@@ -65,18 +81,28 @@ impl SimpleState for CubeGameState {
         // Spawn 1 ball each X sec
         {
             let time = data.world.read_resource::<Time>();
-            self.counter += time.delta_seconds();
+            self.bullet_spawner_timer += time.delta_seconds();
+            if self.platform_size_changer_timer > -0.5 {
+                self.platform_size_changer_timer += time.delta_seconds();
+            }
         }
 
-        if self.counter < 0.5 {
-            return Trans::None;
+        if self.bullet_spawner_timer > 2.5 {
+
+            self.bullet_spawner_timer = 0.0;
+            let mut transform = Transform::default();
+            transform.set_translation_xyz(0.0, 15.0, -20.0);
+            self.add_sphere_entity(data.world, &transform, 0.5);
         }
 
-        self.counter = 0.0;
-        let mut transform = Transform::default();
-        transform.set_translation_xyz(0.0, 15.0, -20.0);
+        if self.platform_size_changer_timer > 5.0 {
+            self.platform_size_changer_timer = -1.0;
 
-        self.add_sphere_entity(data.world, &transform, 0.5);
+            let mut shape_server = data.world.write_resource::<ShapePhysicsServer<f32>>();
+            let shape_desc = ShapeDesc::Cube{half_extents: Vector3::new(5.0, 5.0, 0.3)};
+            shape_server.update_shape(self.platform_shape.unwrap(), &shape_desc);
+            println!("Platform size changed");
+        }
 
         Trans::None
     }
@@ -100,6 +126,20 @@ impl CubeGameState {
             .build();
     }
 
+     fn initialize_bullet_shape(&mut self, world: &mut World, radius: f32) {
+
+        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
+        let shape_desc = ShapeDesc::Sphere{radius};
+        self.bullet_shape = Some(shape_server.create_shape(&shape_desc));
+    }
+
+    fn initialize_platform_shape(&mut self, world: &mut World) {
+
+        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
+        let shape_desc = ShapeDesc::<f32>::Cube{half_extents: Vector3::new(10.0, 10.0, 0.3)};
+        self.platform_shape = Some(shape_server.create_shape(&shape_desc));
+    }
+
     fn add_sphere_entity(&self, world: &mut World, transform: &Transform, radius: f32) {
 
         // Mesh
@@ -117,8 +157,7 @@ impl CubeGameState {
         let mat = create_material(world, LinSrgba::new(rng.gen(), rng.gen(), rng.gen(), 1.0), 0.3, 0.7);
 
         // Rigid body
-        let shape_desc = ShapeDesc::Sphere{radius};
-        let rb = create_rigid_body(world, &transform, &shape_desc, BodyMode::Dynamic);
+        let rb = create_rigid_body(world, &transform, self.bullet_shape.unwrap(), BodyMode::Dynamic);
 
         world.create_entity().with(transform.clone()).with(mesh).with(mat).with(rb).build();
     }
@@ -137,8 +176,7 @@ impl CubeGameState {
 
         let mat = create_material(world, LinSrgba::new(0.0, 1.0, 0.0, 1.0), 0.5, 0.5);
 
-        let shape_desc = ShapeDesc::<f32>::Cube{half_extents: Vector3::new(10.0, 10.0, 0.3)};
-        let rb = create_rigid_body(world, transf, &shape_desc, BodyMode::Static);
+        let rb = create_rigid_body(world, transf, self.platform_shape.unwrap(), BodyMode::Static);
 
         world.create_entity().with(transf.clone()).with(mesh).with(mat).with(rb).build();
     }
@@ -219,15 +257,12 @@ fn create_material(
     material
 }
 
-fn create_rigid_body(world: &World, transform: &Transform, shape_desc: &ShapeDesc<f32>, body_mode: BodyMode) -> PhysicsBodyTag {
+fn create_rigid_body(world: &World, transform: &Transform, shape: PhysicsShapeTag, body_mode: BodyMode) -> PhysicsBodyTag {
 
-    let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
     let mut rigid_body_server = world.write_resource::<RBodyPhysicsServer<f32>>();
     let mut world_server = world.write_resource::<WorldPhysicsServer<f32>>();
     let physics_world = world.read_resource::<PhysicsWorldTag>();
 
-    // TODO try to store this instead to create a new one
-    let shape = shape_server.create_shape(shape_desc);
 
     let desc = RigidBodyDesc{
         mode: body_mode,

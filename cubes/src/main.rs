@@ -47,7 +47,7 @@ fn main() -> amethyst::Result<()> {
     let game_data = setup_render_graph_constructor(game_data);
     let game_data = setup_transforms(game_data);
 
-    let mut game = Application::build("./", game_state::CubeGameState::default())?
+    let mut game = Application::build("./", game_state::CubeGameState::new())?
         .with_frame_limit(FrameRateLimitStrategy::Unlimited, 1000)
         .with_physics(amethyst_nphysics::create_physics::<f32>())
         .with_resource(PhysicsTime::default().set_frames_per_second(240)) // optional
