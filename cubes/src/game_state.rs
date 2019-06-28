@@ -3,6 +3,8 @@ use amethyst::{
     core::{math::Vector3, Transform, Time,},
     ecs::prelude::World,
     prelude::{Builder, GameData, SimpleState, StateData, SimpleTrans, Trans},
+    StateEvent,
+    input::{InputEvent, InputHandler, StringBindings,},
     renderer::{
         camera,
         light,
@@ -25,8 +27,7 @@ use amethyst::{
 use rand::prelude::*;
 
 pub struct CubeGameState{
-    bullet_spawner_timer: f32,
-    platform_size_changer_timer: f32,
+    bullet_fired: bool,
     bullet_shape: Option<PhysicsShapeTag>,
     platform_shape: Option<PhysicsShapeTag>,
 }
@@ -34,8 +35,7 @@ pub struct CubeGameState{
 impl CubeGameState {
     pub fn new() -> Self {
         CubeGameState {
-            bullet_spawner_timer: 0.0,
-            platform_size_changer_timer: 0.0,
+            bullet_fired: false,
             bullet_shape: None,
             platform_shape: None,
         }
@@ -78,30 +78,22 @@ impl SimpleState for CubeGameState {
 
     fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
 
-        // Spawn 1 ball each X sec
+        let mut want_to_fire = false;
         {
-            let time = data.world.read_resource::<Time>();
-            self.bullet_spawner_timer += time.delta_seconds();
-            if self.platform_size_changer_timer > -0.5 {
-                self.platform_size_changer_timer += time.delta_seconds();
+            let ih = data.world.read_resource::<InputHandler<StringBindings>>();
+
+            want_to_fire = ih.action_is_down("shot").unwrap();
+        }
+
+        if want_to_fire {
+            if !self.bullet_fired {
+                self.bullet_fired = true;
+                let mut transform = Transform::default();
+                transform.set_translation_xyz(0.0, 15.0, -20.0);
+                self.add_sphere_entity(data.world, &transform, 0.5);
             }
-        }
-
-        if self.bullet_spawner_timer > 2.5 {
-
-            self.bullet_spawner_timer = 0.0;
-            let mut transform = Transform::default();
-            transform.set_translation_xyz(0.0, 15.0, -20.0);
-            self.add_sphere_entity(data.world, &transform, 0.5);
-        }
-
-        if self.platform_size_changer_timer > 5.0 {
-            self.platform_size_changer_timer = -1.0;
-
-            let mut shape_server = data.world.write_resource::<ShapePhysicsServer<f32>>();
-            let shape_desc = ShapeDesc::Cube{half_extents: Vector3::new(5.0, 5.0, 0.3)};
-            shape_server.update_shape(self.platform_shape.unwrap(), &shape_desc);
-            println!("Platform size changed");
+        }else{
+            self.bullet_fired = false;
         }
 
         Trans::None

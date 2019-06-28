@@ -1,0 +1,7 @@
+(
+  axes: {
+  },
+  actions: {
+    "shot": [[Key(Space)]]
+  },
+)

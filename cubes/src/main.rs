@@ -4,7 +4,7 @@ mod render_graph;
 use amethyst::{
     assets::Processor,
     core::{Float, frame_limiter::FrameRateLimitStrategy, transform::TransformBundle},
-    input::{InputBundle, StringBindings},
+    input::{InputBundle, StringBindings,},
     prelude::{Application, Config, GameDataBuilder},
     renderer::{sprite::SpriteSheet, types::DefaultBackend, RenderingSystem},
     ui::{DrawUiDesc, UiBundle},
@@ -46,6 +46,7 @@ fn main() -> amethyst::Result<()> {
     let game_data = setup_window(game_data);
     let game_data = setup_render_graph_constructor(game_data);
     let game_data = setup_transforms(game_data);
+    let game_data = setup_inputs(game_data);
 
     let mut game = Application::build("./", game_state::CubeGameState::new())?
         .with_frame_limit(FrameRateLimitStrategy::Unlimited, 1000)
@@ -89,4 +90,11 @@ fn setup_render_graph_constructor<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameD
 #[inline]
 fn setup_transforms<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
     gdb.with_bundle(TransformBundle::new()).unwrap()
+}
+
+#[inline]
+fn setup_inputs<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
+    gdb.with_bundle(
+        InputBundle::<StringBindings>::new().with_bindings_from_file("res/bindings_config.ron").unwrap()
+    ).unwrap()
 }
