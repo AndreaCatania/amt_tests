@@ -1,14 +1,15 @@
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
-    core::{math::Vector3, Transform, Time,},
+    core::{
+        math::{Vector, Vector3},
+        Time, Transform, Float,
+    },
     ecs::prelude::World,
-    prelude::{Builder, GameData, SimpleState, StateData, SimpleTrans, Trans},
-    StateEvent,
-    input::{InputEvent, InputHandler, StringBindings,},
+    input::{InputEvent, InputHandler, StringBindings},
+    phythyst::{objects::*, servers::*},
+    prelude::{Builder, GameData, SimpleState, SimpleTrans, StateData, Trans},
     renderer::{
-        camera,
-        light,
-        mtl,
+        camera, light, mtl,
         palette::{LinSrgba, Srgb},
         rendy::{
             mesh::{Normal, Position, Tangent, TexCoord},
@@ -17,19 +18,17 @@ use amethyst::{
         shape::Shape,
         types,
     },
-    phythyst::{
-        servers::*,
-        objects::*,
-    },
     window::ScreenDimensions,
+    StateEvent,
 };
 
 use rand::prelude::*;
 
-pub struct CubeGameState{
+pub struct CubeGameState {
     bullet_fired: bool,
     bullet_shape: Option<PhysicsShapeTag>,
     platform_shape: Option<PhysicsShapeTag>,
+    camera_transform: Transform,
 }
 
 impl CubeGameState {
@@ -38,13 +37,13 @@ impl CubeGameState {
             bullet_fired: false,
             bullet_shape: None,
             platform_shape: None,
+            camera_transform: Transform::default(),
         }
     }
 }
 
 impl SimpleState for CubeGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
-
         let mut transf = Transform::default();
 
         self.initialize_bullet_shape(data.world, 0.5);
@@ -68,16 +67,9 @@ impl SimpleState for CubeGameState {
         self.add_light_entity(data.world, Vector3::new(-1.0, -1.0, -1.0));
 
         self.add_camera_entity(data.world);
-
-        // Add physical bodies
-        let mut transform = Transform::default();
-        transform.set_translation_xyz(0.0, 15.0, -20.0);
-        self.add_sphere_entity(data.world, &transform, 0.5);
-
     }
 
     fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
-
         let mut want_to_fire = false;
         {
             let ih = data.world.read_resource::<InputHandler<StringBindings>>();
@@ -88,11 +80,19 @@ impl SimpleState for CubeGameState {
         if want_to_fire {
             if !self.bullet_fired {
                 self.bullet_fired = true;
-                let mut transform = Transform::default();
-                transform.set_translation_xyz(0.0, 15.0, -20.0);
-                self.add_sphere_entity(data.world, &transform, 0.5);
+
+                let impulse = self.camera_transform.rotation() * Vector3::z();
+                let impulse = Vector3::new(impulse.x.into(), impulse.y.into(), impulse.z.into());
+                let impulse = impulse * -1.0 * 100.0;
+
+                self.add_sphere_entity(
+                    data.world,
+                    &self.camera_transform,
+                    0.5,
+                    &impulse,
+                );
             }
-        }else{
+        } else {
             self.bullet_fired = false;
         }
 
@@ -101,10 +101,10 @@ impl SimpleState for CubeGameState {
 }
 
 impl CubeGameState {
-    fn add_camera_entity(&self, world: &mut World) {
-        let mut t = Transform::default();
-        t.set_translation_xyz(35.0, 20.0, 35.0);
-        t.face_towards(Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0));
+    fn add_camera_entity(&mut self, world: &mut World) {
+        self.camera_transform.set_translation_xyz(35.0, 20.0, 35.0);
+        self.camera_transform
+            .face_towards(Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0));
 
         let (width, height) = {
             let dim = world.read_resource::<ScreenDimensions>();
@@ -113,32 +113,39 @@ impl CubeGameState {
 
         world
             .create_entity()
-            .with(t)
+            .with(self.camera_transform.clone())
             .with(camera::Camera::standard_3d(width, height))
             .build();
     }
 
-     fn initialize_bullet_shape(&mut self, world: &mut World, radius: f32) {
-
+    fn initialize_bullet_shape(&mut self, world: &mut World, radius: f32) {
         let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
-        let shape_desc = ShapeDesc::Sphere{radius};
+        let shape_desc = ShapeDesc::Sphere { radius };
         self.bullet_shape = Some(shape_server.create_shape(&shape_desc));
     }
 
     fn initialize_platform_shape(&mut self, world: &mut World) {
-
         let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
-        let shape_desc = ShapeDesc::<f32>::Cube{half_extents: Vector3::new(10.0, 10.0, 0.3)};
+        let shape_desc = ShapeDesc::<f32>::Cube {
+            half_extents: Vector3::new(10.0, 10.0, 0.3),
+        };
         self.platform_shape = Some(shape_server.create_shape(&shape_desc));
     }
 
-    fn add_sphere_entity(&self, world: &mut World, transform: &Transform, radius: f32) {
-
+    fn add_sphere_entity(
+        &self,
+        world: &mut World,
+        transform: &Transform,
+        radius: f32,
+        impulse: &Vector3<f32>,
+    ) {
         // Mesh
 
         let mesh = {
             let sphere_mesh_data: types::MeshData = Shape::Sphere(32, 32)
-                .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((radius, radius, radius)))
+                .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
+                    radius, radius, radius,
+                )))
                 .into();
 
             create_mesh(world, sphere_mesh_data)
@@ -146,16 +153,32 @@ impl CubeGameState {
 
         let mut rng = thread_rng();
 
-        let mat = create_material(world, LinSrgba::new(rng.gen(), rng.gen(), rng.gen(), 1.0), 0.3, 0.7);
+        let mat = create_material(
+            world,
+            LinSrgba::new(rng.gen(), rng.gen(), rng.gen(), 1.0),
+            0.3,
+            0.7,
+        );
 
         // Rigid body
-        let rb = create_rigid_body(world, &transform, self.bullet_shape.unwrap(), BodyMode::Dynamic);
+        let rb = create_rigid_body(
+            world,
+            &transform,
+            self.bullet_shape.unwrap(),
+            BodyMode::Dynamic,
+            impulse,
+        );
 
-        world.create_entity().with(transform.clone()).with(mesh).with(mat).with(rb).build();
+        world
+            .create_entity()
+            .with(transform.clone())
+            .with(mesh)
+            .with(mat)
+            .with(rb)
+            .build();
     }
 
     fn add_cube(&self, world: &mut World, transf: &Transform) {
-
         let mesh = {
             let plane_mesh_data: types::MeshData = Shape::Cylinder(128usize, Some(1usize))
                 .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
@@ -168,9 +191,21 @@ impl CubeGameState {
 
         let mat = create_material(world, LinSrgba::new(0.0, 1.0, 0.0, 1.0), 0.5, 0.5);
 
-        let rb = create_rigid_body(world, transf, self.platform_shape.unwrap(), BodyMode::Static);
+        let rb = create_rigid_body(
+            world,
+            transf,
+            self.platform_shape.unwrap(),
+            BodyMode::Static,
+            &Vector3::zeros(),
+        );
 
-        world.create_entity().with(transf.clone()).with(mesh).with(mat).with(rb).build();
+        world
+            .create_entity()
+            .with(transf.clone())
+            .with(mesh)
+            .with(mat)
+            .with(rb)
+            .build();
     }
 
     fn add_light_entity(&self, world: &mut World, direction: Vector3<f32>) {
@@ -192,11 +227,7 @@ impl CubeGameState {
         //}
         //.into();
 
-        world
-            .create_entity()
-            .with(light)
-            .with(t)
-            .build();
+        world.create_entity().with(light).with(t).build();
     }
 }
 
@@ -249,14 +280,18 @@ fn create_material(
     material
 }
 
-fn create_rigid_body(world: &World, transform: &Transform, shape: PhysicsShapeTag, body_mode: BodyMode) -> PhysicsBodyTag {
-
+fn create_rigid_body(
+    world: &World,
+    transform: &Transform,
+    shape: PhysicsShapeTag,
+    body_mode: BodyMode,
+    impulse: &Vector3<f32>,
+) -> PhysicsBodyTag {
     let mut rigid_body_server = world.write_resource::<RBodyPhysicsServer<f32>>();
     let mut world_server = world.write_resource::<WorldPhysicsServer<f32>>();
     let physics_world = world.read_resource::<PhysicsWorldTag>();
 
-
-    let desc = RigidBodyDesc{
+    let desc = RigidBodyDesc {
         mode: body_mode,
         transformation: transform.clone(),
         mass: 1.0,
@@ -264,6 +299,8 @@ fn create_rigid_body(world: &World, transform: &Transform, shape: PhysicsShapeTa
     };
 
     let body = rigid_body_server.create_body(*physics_world, &desc);
+
+    rigid_body_server.apply_impulse(body, impulse);
 
     body
 }

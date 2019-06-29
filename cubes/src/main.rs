@@ -2,16 +2,16 @@ mod game_state;
 mod render_graph;
 
 use amethyst::{
+    amethyst_nphysics,
     assets::Processor,
-    core::{Float, frame_limiter::FrameRateLimitStrategy, transform::TransformBundle},
-    input::{InputBundle, StringBindings,},
+    core::{frame_limiter::FrameRateLimitStrategy, transform::TransformBundle, Float},
+    input::{InputBundle, StringBindings},
+    phythyst::{PhysicsBundle, PhysicsTime},
     prelude::{Application, Config, GameDataBuilder},
     renderer::{sprite::SpriteSheet, types::DefaultBackend, RenderingSystem},
     ui::{DrawUiDesc, UiBundle},
     utils::application_root_dir,
     window::{DisplayConfig, WindowBundle},
-    phythyst::{PhysicsBundle, PhysicsTime},
-    amethyst_nphysics
 };
 
 use render_graph::MyRenderGraphCreator;
@@ -66,9 +66,8 @@ fn get_dir_path(path: &str) -> String {
     String::from(MAIN_DIR) + path
 }
 
-
 #[inline]
-fn setup_physics<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b>{
+fn setup_physics<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
     gdb.with_bundle(PhysicsBundle::new()).unwrap()
 }
 
@@ -95,6 +94,9 @@ fn setup_transforms<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a,
 #[inline]
 fn setup_inputs<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
     gdb.with_bundle(
-        InputBundle::<StringBindings>::new().with_bindings_from_file("res/bindings_config.ron").unwrap()
-    ).unwrap()
+        InputBundle::<StringBindings>::new()
+            .with_bindings_from_file("res/bindings_config.ron")
+            .unwrap(),
+    )
+    .unwrap()
 }
