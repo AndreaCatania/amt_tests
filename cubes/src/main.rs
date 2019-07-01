@@ -8,7 +8,7 @@ use amethyst::{
     input::{InputBundle, StringBindings},
     phythyst::{PhysicsBundle, PhysicsTime},
     prelude::{Application, Config, GameDataBuilder},
-    renderer::{sprite::SpriteSheet, types::DefaultBackend, RenderingSystem},
+    renderer::{sprite::SpriteSheet, types::DefaultBackend, RenderingSystem, visibility::VisibilitySortingSystem},
     ui::{DrawUiDesc, UiBundle},
     utils::application_root_dir,
     window::{DisplayConfig, WindowBundle},
@@ -42,11 +42,11 @@ fn main() -> amethyst::Result<()> {
         .start();
 
     let game_data = GameDataBuilder::default();
-    let game_data = setup_physics(game_data);
     let game_data = setup_window(game_data);
-    let game_data = setup_render_graph_constructor(game_data);
-    let game_data = setup_transforms(game_data);
     let game_data = setup_inputs(game_data);
+    let game_data = setup_physics(game_data);
+    let game_data = setup_transforms(game_data);
+    let game_data = setup_render_graph_constructor(game_data);
 
     let mut game = Application::build("./", game_state::CubeGameState::new())?
         .with_frame_limit(FrameRateLimitStrategy::Unlimited, 1000)
@@ -81,7 +81,9 @@ fn setup_window<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b>
 #[inline]
 fn setup_render_graph_constructor<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
     // Creating this system using the thread local to make it sync in the main thread
-    gdb.with_thread_local(RenderingSystem::<DefaultBackend, _>::new(
+    gdb
+        .with_thread_local(VisibilitySortingSystem::new())
+        .with_thread_local(RenderingSystem::<DefaultBackend, _>::new(
         MyRenderGraphCreator::default(),
     ))
 }

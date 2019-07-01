@@ -15,6 +15,7 @@ use amethyst::{
             mesh::{Normal, Position, Tangent, TexCoord},
             texture,
         },
+        Transparent,
         shape::Shape,
         types,
     },
@@ -24,10 +25,13 @@ use amethyst::{
 
 use rand::prelude::*;
 
+const SAFE_ZONE_RADIUS :f32 = 10.0;
+
 pub struct CubeGameState {
     bullet_fired: bool,
     bullet_shape: Option<PhysicsShapeTag>,
     platform_shape: Option<PhysicsShapeTag>,
+    safe_zone_area: Option<PhysicsShapeTag>,
     camera_transform: Transform,
 }
 
@@ -37,6 +41,7 @@ impl CubeGameState {
             bullet_fired: false,
             bullet_shape: None,
             platform_shape: None,
+            safe_zone_area: None,
             camera_transform: Transform::default(),
         }
     }
@@ -48,6 +53,7 @@ impl SimpleState for CubeGameState {
 
         self.initialize_bullet_shape(data.world, 0.5);
         self.initialize_platform_shape(data.world);
+        self.initialize_safe_zone_shape(data.world);
 
         transf.append_rotation_x_axis(90.0f32.to_radians());
         self.add_cube(data.world, &transf);
@@ -67,6 +73,8 @@ impl SimpleState for CubeGameState {
         self.add_light_entity(data.world, Vector3::new(-1.0, -1.0, -1.0));
 
         self.add_camera_entity(data.world);
+
+        self.add_safe_zone(data.world, &Transform::default());
     }
 
     fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
@@ -85,7 +93,7 @@ impl SimpleState for CubeGameState {
                 let impulse = Vector3::new(impulse.x.into(), impulse.y.into(), impulse.z.into());
                 let impulse = impulse * -1.0 * 100.0;
 
-                self.add_sphere_entity(
+                self.add_bullet_entity(
                     data.world,
                     &self.camera_transform,
                     0.5,
@@ -101,6 +109,29 @@ impl SimpleState for CubeGameState {
 }
 
 impl CubeGameState {
+
+    fn initialize_bullet_shape(&mut self, world: &mut World, radius: f32) {
+        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
+        let shape_desc = ShapeDesc::Sphere { radius };
+        self.bullet_shape = Some(shape_server.create_shape(&shape_desc));
+    }
+
+    fn initialize_platform_shape(&mut self, world: &mut World) {
+        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
+        let shape_desc = ShapeDesc::<f32>::Cube {
+            half_extents: Vector3::new(10.0, 10.0, 0.3),
+        };
+        self.platform_shape = Some(shape_server.create_shape(&shape_desc));
+    }
+
+    fn initialize_safe_zone_shape(&mut self, world: &mut World) {
+        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
+        let shape_desc = ShapeDesc::<f32>::Sphere{
+            radius: SAFE_ZONE_RADIUS,
+        };
+        self.safe_zone_area = Some(shape_server.create_shape(&shape_desc));
+    }
+
     fn add_camera_entity(&mut self, world: &mut World) {
         self.camera_transform.set_translation_xyz(35.0, 20.0, 35.0);
         self.camera_transform
@@ -118,21 +149,7 @@ impl CubeGameState {
             .build();
     }
 
-    fn initialize_bullet_shape(&mut self, world: &mut World, radius: f32) {
-        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
-        let shape_desc = ShapeDesc::Sphere { radius };
-        self.bullet_shape = Some(shape_server.create_shape(&shape_desc));
-    }
-
-    fn initialize_platform_shape(&mut self, world: &mut World) {
-        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
-        let shape_desc = ShapeDesc::<f32>::Cube {
-            half_extents: Vector3::new(10.0, 10.0, 0.3),
-        };
-        self.platform_shape = Some(shape_server.create_shape(&shape_desc));
-    }
-
-    fn add_sphere_entity(
+    fn add_bullet_entity(
         &self,
         world: &mut World,
         transform: &Transform,
@@ -155,7 +172,7 @@ impl CubeGameState {
 
         let mat = create_material(
             world,
-            LinSrgba::new(rng.gen(), rng.gen(), rng.gen(), 1.0),
+            LinSrgba::new(rng.gen(), rng.gen(), rng.gen(), 0.2),
             0.3,
             0.7,
         );
@@ -175,6 +192,37 @@ impl CubeGameState {
             .with(mesh)
             .with(mat)
             .with(rb)
+            .build();
+    }
+
+    fn add_safe_zone(&self, world: &mut World, transf: &Transform){
+
+        let mesh = {
+            let sphere_mesh_data: types::MeshData = Shape::Sphere(32, 32)
+                .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
+                    SAFE_ZONE_RADIUS, SAFE_ZONE_RADIUS, SAFE_ZONE_RADIUS,
+                )))
+                .into();
+
+            create_mesh(world, sphere_mesh_data)
+        };
+
+        let mat = create_material(
+            world,
+            LinSrgba::new(1.0, 0.0, 0.0, 0.2),
+            0.3,
+            0.7,
+        );
+
+        let area = create_area(world, transf, self.safe_zone_area.unwrap());
+
+        world
+            .create_entity()
+            .with(mesh)
+            .with(mat)
+            .with(Transparent::default())
+            .with(transf.clone())
+            .with(area)
             .build();
     }
 
@@ -303,4 +351,20 @@ fn create_rigid_body(
     rigid_body_server.apply_impulse(body, impulse);
 
     body
+}
+
+fn create_area(
+    world: &World,
+    transform: &Transform,
+    shape: PhysicsShapeTag) -> PhysicsAreaTag {
+
+    let mut area_server = world.write_resource::<AreaPhysicsServer>();
+    let physics_world = world.read_resource::<PhysicsWorldTag>();
+
+    let area_desc = AreaDesc {
+        shape,
+        transform: transform.clone(),
+    };
+
+    area_server.create_area(*physics_world, &area_desc)
 }

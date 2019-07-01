@@ -81,10 +81,11 @@ impl GraphCreator<types::DefaultBackend> for MyRenderGraphCreator {
             )),
         );
 
+        // Creates a render pass
         let pass1 = graph_builder.add_node(
-            // Creates a render pass
             SubpassBuilder::new()
-                .with_group(pass::DrawPbrDesc::default().builder())
+                .with_group(pass::DrawPbrDesc::default().builder()) // Pass 1
+                .with_group(pass::DrawPbrTransparentDesc::default().builder()) // Pass 2
                 //.with_group(pass::DrawFlatDesc::default().builder())
                 .with_color(color_image)
                 .with_depth_stencil(depth)
