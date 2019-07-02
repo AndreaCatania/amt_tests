@@ -1,6 +1,6 @@
 mod game_state;
 mod render_graph;
-mod safe_zone;
+mod components;
 mod safe_zone_system;
 
 use amethyst::{

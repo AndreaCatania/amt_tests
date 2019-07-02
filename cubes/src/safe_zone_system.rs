@@ -1,5 +1,5 @@
 
-use crate::safe_zone::*;
+use crate::components::*;
 
 use amethyst::{
     core::Time,
@@ -38,31 +38,30 @@ impl<'s> System<'s> for SafeZoneSystem {
         ReadExpect<'s, AreaPhysicsServer>,
         ReadExpect<'s, SafeZoneAssets>,
         ReadStorage<'s, PhysicsAreaTag>,
+        ReadStorage<'s, PhysicsBodyTag>,
+        ReadStorage<'s, Bullet>,
         WriteStorage<'s, SafeZone>,
         WriteStorage<'s, Handle<Material>>,
     );
 
-    fn run(&mut self, (entities, time, area_server, safe_zone_assets, areas, mut safe_zones, mut mats): Self::SystemData) {
+    fn run(&mut self, (entities, time, area_server, safe_zone_assets, areas, bodies, bullets, mut safe_zones, mut mats): Self::SystemData) {
 
-        for (entity, area, safe_zone, mat) in (&*entities, &areas, &mut safe_zones, &mut mats).join() {
+        let mut overlapped_bodies = Vec::<PhysicsBodyTag>::new();
+
+        // Check if there are overlaps
+        for (area, safe_zone, mat) in (&areas, &mut safe_zones, &mut mats).join() {
 
             let events = area_server.0.overlap_events(*area);
 
             for e in events {
-
                 match e {
-                    OverlapEvent::Enter(_) => {
-                        safe_zone.overlap_count += 1;
+                    OverlapEvent::Enter(body) => {
+                        safe_zone.activation_timer = 2.0;
+
+                        overlapped_bodies.push(body);
                     }
-                    OverlapEvent::Exit(_) => {
-                        safe_zone.overlap_count -= 1;
-                    }
+                    _ => {}
                 }
-            }
-
-            if safe_zone.overlap_count > 0 {
-
-                safe_zone.activation_timer = 2.0;
             }
 
             safe_zone.activation_timer -= time.delta_seconds();
@@ -74,6 +73,13 @@ impl<'s> System<'s> for SafeZoneSystem {
             };
 
             *mat = safe_zone_mat;
+        }
+
+        // Delete the bullets that overlaps
+        for (entity, body, bullet) in (&*entities, &bodies, &bullets).join() {
+            if overlapped_bodies.contains(body) {
+                entities.delete(entity);
+            }
         }
     }
 }

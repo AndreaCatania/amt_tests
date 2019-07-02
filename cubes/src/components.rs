@@ -2,7 +2,7 @@
 use amethyst::{
     assets::Handle,
     ecs::{
-        Component, VecStorage,
+        Component, NullStorage, VecStorage,
     },
     renderer::{
         mtl::Material,
@@ -10,14 +10,12 @@ use amethyst::{
 };
 
 pub struct SafeZone{
-    pub overlap_count: i32,
     pub activation_timer: f32,
 }
 
 impl Default for SafeZone{
     fn default() -> Self {
         SafeZone{
-            overlap_count: 0,
             activation_timer: 0.0
         }
     }
@@ -30,4 +28,16 @@ impl Component for SafeZone{
 pub struct SafeZoneAssets{
     pub idle: Handle<Material>,
     pub active: Handle<Material>,
+}
+
+pub struct Bullet{}
+
+impl Default for Bullet{
+    fn default() -> Self {
+        Bullet{}
+    }
+}
+
+impl Component for Bullet {
+    type Storage = NullStorage<Self>;
 }

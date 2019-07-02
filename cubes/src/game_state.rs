@@ -1,5 +1,5 @@
 use crate::{
-    safe_zone::*,
+    components::*,
     safe_zone_system::SafeZoneSystem,
 };
 
@@ -54,6 +54,9 @@ impl CubeGameState {
 
 impl SimpleState for CubeGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+
+        data.world.register::<Bullet>();
+
         let mut transf = Transform::default();
 
         self.initialize_bullet_shape(data.world, 0.5);
@@ -216,6 +219,7 @@ impl CubeGameState {
             .with(mesh)
             .with(mat)
             .with(rb)
+            .with(Bullet::default())
             .build();
     }
 
