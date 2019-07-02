@@ -1,7 +1,9 @@
 mod game_state;
 mod render_graph;
 mod components;
+mod impulse_system;
 mod safe_zone_system;
+mod target_system;
 
 use amethyst::{
     amethyst_nphysics,
@@ -46,8 +48,9 @@ fn main() -> amethyst::Result<()> {
     let game_data = GameDataBuilder::default();
     let game_data = setup_window(game_data);
     let game_data = setup_inputs(game_data);
-    let game_data = setup_physics(game_data);
     let game_data = setup_gameplay_systems(game_data);
+    let game_data = setup_physics(game_data);
+    let game_data = setup_fake_physics_systems(game_data);
     let game_data = setup_transforms(game_data);
     let game_data = setup_render_graph_constructor(game_data);
 
@@ -76,6 +79,11 @@ fn setup_physics<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b
 
 #[inline]
 fn setup_gameplay_systems<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
+    gdb.with(impulse_system::ImpulseSystem::new(), "impulse_system", &[])
+}
+
+#[inline]
+fn setup_fake_physics_systems<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
     // Important this system must be executed as physics sub steps and not here.
     // I'm setting here because substepping is not yet implemented.
     // The barrier is used to execute this systems always after the stepping and never before. But again only because is not a subscript

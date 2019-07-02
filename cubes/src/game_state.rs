@@ -220,6 +220,7 @@ impl CubeGameState {
             .with(mat)
             .with(rb)
             .with(Bullet::default())
+            .with(PhysicalImpulse::new(impulse.clone()))
             .build();
     }
 
@@ -371,8 +372,6 @@ fn create_rigid_body(
     };
 
     let body = rigid_body_server.create_body(*physics_world, &desc);
-
-    rigid_body_server.apply_impulse(body, impulse);
 
     body
 }

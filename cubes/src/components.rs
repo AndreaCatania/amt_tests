@@ -2,12 +2,27 @@
 use amethyst::{
     assets::Handle,
     ecs::{
-        Component, NullStorage, VecStorage,
+        Component, HashMapStorage, NullStorage, VecStorage,
     },
     renderer::{
         mtl::Material,
-    }
+    },
+    core::math::*,
 };
+
+pub struct PhysicalImpulse{
+    pub impulse: Vector3<f32>,
+}
+
+impl PhysicalImpulse {
+    pub fn new(impulse: Vector3<f32>) -> Self {
+        PhysicalImpulse{impulse}
+    }
+}
+
+impl Component for PhysicalImpulse {
+    type Storage = HashMapStorage<Self>;
+}
 
 pub struct SafeZone{
     pub activation_timer: f32,
