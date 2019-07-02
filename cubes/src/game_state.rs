@@ -1,3 +1,8 @@
+use crate::{
+    safe_zone::*,
+    safe_zone_system::SafeZoneSystem,
+};
+
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
     core::{
@@ -53,7 +58,7 @@ impl SimpleState for CubeGameState {
 
         self.initialize_bullet_shape(data.world, 0.5);
         self.initialize_platform_shape(data.world);
-        self.initialize_safe_zone_shape(data.world);
+        self.initialize_safe_zone(data.world);
 
         transf.append_rotation_x_axis(90.0f32.to_radians());
         self.add_cube(data.world, &transf);
@@ -124,12 +129,31 @@ impl CubeGameState {
         self.platform_shape = Some(shape_server.create_shape(&shape_desc));
     }
 
-    fn initialize_safe_zone_shape(&mut self, world: &mut World) {
-        let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
-        let shape_desc = ShapeDesc::<f32>::Sphere{
-            radius: SAFE_ZONE_RADIUS,
+    fn initialize_safe_zone(&mut self, world: &mut World) {
+        {
+            let mut shape_server = world.write_resource::<ShapePhysicsServer<f32>>();
+            let shape_desc = ShapeDesc::<f32>::Sphere {
+                radius: SAFE_ZONE_RADIUS,
+            };
+            self.safe_zone_area = Some(shape_server.create_shape(&shape_desc));
+        }
+
+        let safe_zone_assets = SafeZoneAssets{
+            idle: create_material(
+                world,
+                LinSrgba::new(0.2, 0.1, 0.1, 0.05),
+                0.0,
+                1.0,
+            ),
+            active: create_material(
+                world,
+                LinSrgba::new(1.0, 0.0, 0.0, 0.6),
+                0.0,
+                1.0,
+            )
         };
-        self.safe_zone_area = Some(shape_server.create_shape(&shape_desc));
+
+        world.add_resource(safe_zone_assets);
     }
 
     fn add_camera_entity(&mut self, world: &mut World) {
@@ -207,22 +231,18 @@ impl CubeGameState {
             create_mesh(world, sphere_mesh_data)
         };
 
-        let mat = create_material(
-            world,
-            LinSrgba::new(1.0, 0.0, 0.0, 0.2),
-            0.3,
-            0.7,
-        );
+        let safe_zone_mat_idle = world.read_resource::<SafeZoneAssets>().idle.clone();
 
         let area = create_area(world, transf, self.safe_zone_area.unwrap());
 
         world
             .create_entity()
             .with(mesh)
-            .with(mat)
+            .with(safe_zone_mat_idle)
             .with(Transparent::default())
             .with(transf.clone())
             .with(area)
+            .with(SafeZone::default())
             .build();
     }
 

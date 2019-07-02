@@ -1,5 +1,7 @@
 mod game_state;
 mod render_graph;
+mod safe_zone;
+mod safe_zone_system;
 
 use amethyst::{
     amethyst_nphysics,
@@ -45,6 +47,7 @@ fn main() -> amethyst::Result<()> {
     let game_data = setup_window(game_data);
     let game_data = setup_inputs(game_data);
     let game_data = setup_physics(game_data);
+    let game_data = setup_gameplay_systems(game_data);
     let game_data = setup_transforms(game_data);
     let game_data = setup_render_graph_constructor(game_data);
 
@@ -69,6 +72,15 @@ fn get_dir_path(path: &str) -> String {
 #[inline]
 fn setup_physics<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
     gdb.with_bundle(PhysicsBundle::new()).unwrap()
+}
+
+#[inline]
+fn setup_gameplay_systems<'a, 'b>(gdb: GameDataBuilder<'a, 'b>) -> GameDataBuilder<'a, 'b> {
+    // Important this system must be executed as physics sub steps and not here.
+    // I'm setting here because substepping is not yet implemented.
+    // The barrier is used to execute this systems always after the stepping and never before. But again only because is not a subscript
+    gdb.with_barrier()
+        .with(safe_zone_system::SafeZoneSystem::new(), "safe_zone_system", &[])
 }
 
 #[inline]
