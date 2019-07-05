@@ -1,0 +1,8 @@
+[package]
+name = "yt"
+version = "0.1.0"
+authors = [""]
+edition = "2018"
+
+[dependencies]
+amethyst = {version = "0.11", features=[ "vulkan"]}
