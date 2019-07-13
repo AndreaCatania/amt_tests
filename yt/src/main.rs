@@ -38,7 +38,7 @@ fn main()-> amethyst::Result<()> {
         ));
 
 
-    let mut game = Application::build("./", game_state::GameState)?
+    let mut game = Application::build("./", game_state::LoadingState::default())?
         .build(game_data)?;
 
     game.run();
