@@ -1,13 +1,13 @@
 use amethyst::{
-    prelude::*,
     assets::{AssetStorage, Handle, Loader},
     core::{
         math::{Translation3, Vector, Vector3},
         shrev::{EventChannel, ReaderId},
         Float, Parent, Time, Transform,
     },
-    ecs::{prelude::World, Entity, Join},
+    ecs::{prelude::World, Component, DenseVecStorage, Entity, NullStorage},
     input::{InputEvent, InputHandler, StringBindings},
+    prelude::*,
     renderer::{
         camera, light, mtl,
         palette::{LinSrgba, Srgb},
@@ -22,15 +22,19 @@ use amethyst::{
     StateEvent,
 };
 
+use rand::prelude::*;
+
 #[derive(Default)]
-pub struct LoadingState{
+pub struct LoadingState {
     counter: i32,
 }
 
 impl SimpleState for LoadingState {
-
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         println!("Loading on start");
+
+        data.world.add_resource(MyHandleStorage::default());
+
         add_camera_entity(data.world);
         add_light_entity(data.world, Vector3::new(-1.0, -1.0, -1.0));
         add_sphere_entity(data.world);
@@ -40,25 +44,25 @@ impl SimpleState for LoadingState {
         println!("Loading on stop");
     }
 
-    fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>> ) -> SimpleTrans {
+    fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         println!("Loading state on update");
 
         self.counter += 1;
         if self.counter >= 5 {
             Trans::Switch(Box::new(GamePlayState::default()))
-        }else{
+        } else {
             Trans::None
         }
     }
 }
 
 #[derive(Default)]
-pub struct GamePlayState{
-    counter: i32,
+pub struct GamePlayState {
+    time_bank: f32,
+    last_added_mesh_type: bool,
 }
 
 impl SimpleState for GamePlayState {
-
     fn on_start(&mut self, _data: StateData<'_, GameData<'_, '_>>) {
         println!("GamePlay on start");
     }
@@ -75,26 +79,27 @@ impl SimpleState for GamePlayState {
         println!("GamePlay on resume");
     }
 
-    fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>> ) -> SimpleTrans {
-        println!("GamePlay state on update");
+    fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        self.time_bank += { data.world.read_resource::<Time>().delta_seconds() };
 
-        self.counter += 1;
-        if self.counter == 100 {
-            Trans::Push(Box::new(PauseState::default()))
-        }else{
-            if self.counter == 200 {
+        if self.time_bank > 1.0 {
+            self.time_bank -= 1.0;
 
-                Trans::Quit
-            }else{
-
-                Trans::None
+            if self.last_added_mesh_type {
+                add_cube_entity(data.world);
+            } else {
+                add_sphere_entity(data.world);
             }
+
+            self.last_added_mesh_type = !self.last_added_mesh_type;
         }
+
+        Trans::None
     }
 }
 
 #[derive(Default)]
-pub struct PauseState{
+pub struct PauseState {
     counter: i32,
 }
 
@@ -121,11 +126,10 @@ impl SimpleState for PauseState {
 
 // Utilities ------------------------------------
 
-fn add_camera_entity( world: &mut World) {
+fn add_camera_entity(world: &mut World) {
     let mut camera_transform = Transform::default();
     camera_transform.set_translation_xyz(31.0, 7.0, 31.0);
-    camera_transform
-        .face_towards(Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0));
+    camera_transform.face_towards(Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0));
 
     let (width, height) = {
         let dim = world.read_resource::<ScreenDimensions>();
@@ -134,45 +138,118 @@ fn add_camera_entity( world: &mut World) {
 
     world
         .create_entity()
-        .with(camera_transform.clone())
+        .with(camera_transform)
         .with(camera::Camera::standard_3d(width, height))
         .build();
 }
 
 fn add_light_entity(world: &mut World, direction: Vector3<f32>) {
-    let mut t = Transform::default();
-    t.set_translation(Vector3::new(6.0, 6.0, 6.0));
+    let mut light_transform = Transform::default();
+    light_transform.set_translation(Vector3::new(6.0, 6.0, 6.0));
 
     let light: light::Light = light::DirectionalLight {
         color: Srgb::new(1.0, 1.0, 1.0),
         direction: direction.normalize(),
         intensity: 5.0,
     }
-        .into();
+    .into();
 
-    world.create_entity().with(light).with(t).build();
+    world
+        .create_entity()
+        .with(light)
+        .with(light_transform)
+        .build();
 }
 
 fn add_sphere_entity(world: &mut World) {
     let mesh = {
-        let radius = 1.0;
-        let mesh_data: types::MeshData = Shape::Sphere(32, 32)
-            .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
-                radius, radius, radius,
-            )))
-            .into();
+        let mut my_handle_storage = world.write_resource::<MyHandleStorage>();
 
-        create_mesh(world, mesh_data)
+        my_handle_storage
+            .sphere_mesh
+            .get_or_insert_with(|| {
+                let radius = 1.0;
+                let mesh_data: types::MeshData = Shape::Sphere(32, 32)
+                    .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
+                        radius, radius, radius,
+                    )))
+                    .into();
+
+                create_mesh(world, mesh_data)
+            })
+            .clone()
     };
 
-    let mat = create_material(world, LinSrgba::new(1.0, 1.0, 1.0, 1.0), 0.0, 1.0);
+    let mat = {
+        let mut my_handle_storage = world.write_resource::<MyHandleStorage>();
 
-    let t = Transform::default();
+        my_handle_storage
+            .material
+            .get_or_insert_with(|| {
+                create_material(world, LinSrgba::new(1.0, 1.0, 1.0, 1.0), 0.0, 1.0)
+            })
+            .clone()
+    };
+
+    let mut sphere_transform = Transform::default();
+
+    let mut rng = rand::thread_rng();
+    sphere_transform.set_translation_x(rng.gen_range(-3.0, 3.0));
+    sphere_transform.set_translation_y(rng.gen_range(-3.0, 3.0));
+    sphere_transform.set_translation_z(rng.gen_range(-3.0, 3.0));
+
     world
         .create_entity()
-        .with(t)
+        .with(sphere_transform)
         .with(mesh)
         .with(mat)
+        .with(Motion::new(-1.0 * (2.0 + 10.0 * rng.gen::<f32>())))
+        .build();
+}
+
+fn add_cube_entity(world: &mut World) {
+    let mesh = {
+        let mut my_handle_storage = world.write_resource::<MyHandleStorage>();
+
+        my_handle_storage
+            .cube_mesh
+            .get_or_insert_with(|| {
+                let radius = 1.0;
+                let mesh_data: types::MeshData = Shape::Cube
+                    .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
+                        radius, radius, radius,
+                    )))
+                    .into();
+
+                create_mesh(world, mesh_data)
+            })
+            .clone()
+    };
+
+    let mat = {
+        let mut my_handle_storage = world.write_resource::<MyHandleStorage>();
+
+        my_handle_storage
+            .material
+            .get_or_insert_with(|| {
+                create_material(world, LinSrgba::new(1.0, 1.0, 1.0, 1.0), 0.0, 1.0)
+            })
+            .clone()
+    };
+
+    let mut sphere_transform = Transform::default();
+
+    let mut rng = rand::thread_rng();
+    sphere_transform.set_translation_x(rng.gen_range(-3.0, 3.0));
+    sphere_transform.set_translation_y(rng.gen_range(-3.0, 3.0));
+    sphere_transform.set_translation_z(rng.gen_range(-3.0, 3.0));
+
+    world
+        .create_entity()
+        .with(sphere_transform)
+        .with(mesh)
+        .with(mat)
+        .with(Motion::new(2.0 + 10.0 * rng.gen::<f32>()))
         .build();
 }
 
@@ -223,4 +300,25 @@ pub fn create_material(
     );
 
     material
+}
+
+#[derive(Default)]
+struct MyHandleStorage {
+    pub sphere_mesh: Option<Handle<types::Mesh>>,
+    pub cube_mesh: Option<Handle<types::Mesh>>,
+    pub material: Option<Handle<mtl::Material>>,
+}
+
+pub struct Motion {
+    pub speed: f32,
+}
+
+impl Motion {
+    pub fn new(speed: f32) -> Self {
+        Motion { speed }
+    }
+}
+
+impl Component for Motion {
+    type Storage = DenseVecStorage<Self>;
 }

@@ -5,4 +5,5 @@ authors = [""]
 edition = "2018"
 
 [dependencies]
-amethyst = {version = "0.11", features=[ "vulkan"]}
+amethyst = {file="/home/andrea/Workspace/git/amethyst", features=["vulkan"]}
+rand = {version = "0.7"}
