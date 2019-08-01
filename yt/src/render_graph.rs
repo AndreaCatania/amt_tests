@@ -44,6 +44,7 @@ impl GraphCreator<types::DefaultBackend> for MyRenderGraphCreator {
         factory: &mut Factory<types::DefaultBackend>,
         res: &Resources,
     ) -> GraphBuilder<types::DefaultBackend, Resources> {
+
         let actual_sd = res.try_fetch::<ScreenDimensions>();
         self.screen_dimensions = actual_sd.map(|d| d.clone());
 
@@ -84,11 +85,11 @@ impl GraphCreator<types::DefaultBackend> for MyRenderGraphCreator {
         // Creates a render pass
         let pass1 = graph_builder.add_node(
             SubpassBuilder::new()
-                .with_group(pass::DrawPbrDesc::default().builder()) // Pass 1
-                //.with_group(pass::DrawPbrTransparentDesc::default().builder()) // Pass 2
-                //.with_group(pass::DrawFlatDesc::default().builder())
                 .with_color(color_image)
                 .with_depth_stencil(depth)
+                .with_group(pass::DrawPbrDesc::default().builder()) // Pass 1
+                .with_group(pass::DrawPbrTransparentDesc::default().builder()) // Pass 2
+                //.with_group(pass::DrawFlatDesc::default().builder())
                 .into_pass(),
         );
 

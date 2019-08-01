@@ -3,7 +3,7 @@ use amethyst::{
     core::{
         math::{Translation3, Vector, Vector3},
         shrev::{EventChannel, ReaderId},
-        Float, Parent, Time, Transform,
+        Parent, Time, Transform,
     },
     ecs::{prelude::World, Component, DenseVecStorage, Entity, NullStorage},
     input::{InputEvent, InputHandler, StringBindings},
@@ -20,6 +20,10 @@ use amethyst::{
     },
     window::ScreenDimensions,
     StateEvent,
+    //phythyst::{
+    //    objects::*,
+    //    servers::*,
+    //},
 };
 
 use rand::prelude::*;
@@ -35,9 +39,12 @@ impl SimpleState for LoadingState {
 
         data.world.add_resource(MyHandleStorage::default());
 
+        return;
         add_camera_entity(data.world);
-        add_light_entity(data.world, Vector3::new(-1.0, -1.0, -1.0));
+        add_light_entity(data.world, 5.0, Vector3::new(-1.0, -1.0, -1.0));
+        add_light_entity(data.world, 0.7, Vector3::new(1.0, 0.0, 1.0));
         add_sphere_entity(data.world);
+        add_magnetic_tool_entity(data.world);
     }
 
     fn on_stop(&mut self, _data: StateData<'_, GameData<'_, '_>>) {
@@ -128,7 +135,7 @@ impl SimpleState for PauseState {
 
 fn add_camera_entity(world: &mut World) {
     let mut camera_transform = Transform::default();
-    camera_transform.set_translation_xyz(31.0, 7.0, 31.0);
+    camera_transform.set_translation_xyz(-5.0, 7.0, 30.0);
     camera_transform.face_towards(Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0));
 
     let (width, height) = {
@@ -143,14 +150,14 @@ fn add_camera_entity(world: &mut World) {
         .build();
 }
 
-fn add_light_entity(world: &mut World, direction: Vector3<f32>) {
+fn add_light_entity(world: &mut World, intensity: f32, direction: Vector3<f32>) {
     let mut light_transform = Transform::default();
     light_transform.set_translation(Vector3::new(6.0, 6.0, 6.0));
 
     let light: light::Light = light::DirectionalLight {
         color: Srgb::new(1.0, 1.0, 1.0),
         direction: direction.normalize(),
-        intensity: 5.0,
+        intensity,
     }
     .into();
 
@@ -253,6 +260,32 @@ fn add_cube_entity(world: &mut World) {
         .build();
 }
 
+fn add_magnetic_tool_entity(world: &mut World){
+
+    let mesh = {
+        let mesh_data: types::MeshData = Shape::Cube
+            .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
+                8.0, 0.4, 0.4,
+            )))
+            .into();
+
+        create_mesh(world, mesh_data)
+    };
+
+    let mat = create_material(world, LinSrgba::new(1.0, 1.0, 0.0, 1.0), 0.0, 1.0);
+
+    let mut transf = Transform::default();
+    transf.set_translation_xyz(3.0, 4.0, 0.0);
+
+    world
+        .create_entity()
+        .with(mesh)
+        .with(mat)
+        .with(transf)
+        .with(Tool)
+        .build();
+}
+
 pub fn create_mesh(world: &World, mesh_data: types::MeshData) -> Handle<types::Mesh> {
     // Mesh creation
     let loader = world.read_resource::<Loader>();
@@ -302,6 +335,27 @@ pub fn create_material(
     material
 }
 
+//fn create_rigid_body(
+//    world: &World,
+//    transform: &Transform,
+//    shape: PhysicsShapeTag,
+//    body_mode: BodyMode,
+//    impulse: &Vector3<f32>,
+//) -> PhysicsHandle<PhysicsBodyTag> {
+//    let mut rigid_body_server = world.write_resource::<RBodyPhysicsServer<f32>>();
+//    let physics_world = world.read_resource::<PhysicsHandle<PhysicsWorldTag>>();
+//
+//    let desc = RigidBodyDesc {
+//        mode: body_mode,
+//        mass: 1.0,
+//        shape,
+//    };
+//
+//    let body = rigid_body_server.create_body(physics_world.get(), &desc);
+//
+//    body
+//}
+
 #[derive(Default)]
 struct MyHandleStorage {
     pub sphere_mesh: Option<Handle<types::Mesh>>,
@@ -321,4 +375,11 @@ impl Motion {
 
 impl Component for Motion {
     type Storage = DenseVecStorage<Self>;
+}
+
+#[derive(Default)]
+pub struct Tool;
+
+impl Component for Tool {
+    type Storage = NullStorage<Self>;
 }
