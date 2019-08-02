@@ -20,10 +20,6 @@ use amethyst::{
     },
     window::ScreenDimensions,
     StateEvent,
-    //phythyst::{
-    //    objects::*,
-    //    servers::*,
-    //},
 };
 
 use rand::prelude::*;
@@ -39,7 +35,6 @@ impl SimpleState for LoadingState {
 
         data.world.add_resource(MyHandleStorage::default());
 
-        return;
         add_camera_entity(data.world);
         add_light_entity(data.world, 5.0, Vector3::new(-1.0, -1.0, -1.0));
         add_light_entity(data.world, 0.7, Vector3::new(1.0, 0.0, 1.0));
@@ -260,8 +255,7 @@ fn add_cube_entity(world: &mut World) {
         .build();
 }
 
-fn add_magnetic_tool_entity(world: &mut World){
-
+fn add_magnetic_tool_entity(world: &mut World) {
     let mesh = {
         let mesh_data: types::MeshData = Shape::Cube
             .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(Some((
@@ -334,27 +328,6 @@ pub fn create_material(
 
     material
 }
-
-//fn create_rigid_body(
-//    world: &World,
-//    transform: &Transform,
-//    shape: PhysicsShapeTag,
-//    body_mode: BodyMode,
-//    impulse: &Vector3<f32>,
-//) -> PhysicsHandle<PhysicsBodyTag> {
-//    let mut rigid_body_server = world.write_resource::<RBodyPhysicsServer<f32>>();
-//    let physics_world = world.read_resource::<PhysicsHandle<PhysicsWorldTag>>();
-//
-//    let desc = RigidBodyDesc {
-//        mode: body_mode,
-//        mass: 1.0,
-//        shape,
-//    };
-//
-//    let body = rigid_body_server.create_body(physics_world.get(), &desc);
-//
-//    body
-//}
 
 #[derive(Default)]
 struct MyHandleStorage {

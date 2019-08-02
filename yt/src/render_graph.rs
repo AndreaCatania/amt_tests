@@ -44,7 +44,6 @@ impl GraphCreator<types::DefaultBackend> for MyRenderGraphCreator {
         factory: &mut Factory<types::DefaultBackend>,
         res: &Resources,
     ) -> GraphBuilder<types::DefaultBackend, Resources> {
-
         let actual_sd = res.try_fetch::<ScreenDimensions>();
         self.screen_dimensions = actual_sd.map(|d| d.clone());
 
